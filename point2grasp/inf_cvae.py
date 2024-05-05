@@ -188,6 +188,7 @@ if __name__ == '__main__':
             cmap_id_sample['object_point_cloud'] = object_point_cloud
             cmap_id_sample['contact_map_value'] = contact_map_value
             cmap_id.append(cmap_id_sample)
+            
             vis_data = []
             vis_data += [plot_point_cloud_cmap(contact_map_goal[:, :3].cpu().detach().numpy(),
                                                contact_map_goal[:, 6].cpu().detach().numpy())]
