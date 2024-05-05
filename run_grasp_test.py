@@ -18,10 +18,9 @@ import trimesh as tm
 
 def get_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--robot_name', default='barrett', type=str)
+    parser.add_argument('--robot_name', default='allegro', type=str)
 
-    parser.add_argument('--dataset', default='SqrtUnseenBarrett-SharpClamp_A3', type=str)
-
+    parser.add_argument('--dataset', default='SqrtFullRobots-SharpClamp_A3', type=str)
     parser.add_argument('--domain', default='ood', type=str)
     parser.add_argument('--comment', default='correct', type=str)
     parser.add_argument('--base_name', default='align_dist', type=str)
@@ -113,16 +112,17 @@ if __name__ == '__main__':
         from envs.tasks.grasp_test_force_barrett import IsaacGraspTestForce_barrett as IsaacGraspTestForce
     elif robot_name == 'ezgripper':
         from envs.tasks.grasp_test_force_ezgripper import IsaacGraspTestForce_ezgripper as IsaacGraspTestForce
+    elif robot_name == 'allegro':
+        from envs.tasks.grasp_test_force_allegro import IsaacGraspTestForce_allegro as IsaacGraspTestForce
     else:
         raise NotImplementedError
 
-    sim_headless = True
+    sim_headless = False
     device = "cuda"
 
     # load dataset
-    object_list = json.load(open(os.path.join('logs_gen', args.dataset, 'split_train_validate_objects.json'), 'rb'))['validate']
+    object_list = json.load(open(os.path.join('dataset/CMapDataset-sqrt_align', 'split_train_validate_objects.json'), 'rb'))['validate']
     object_list.sort()
-
     data_basedir = os.path.join('logs_gen', args.dataset, f'{args.domain}-{args.robot_name}-{args.comment}', args.base_name)
     record_path = os.path.join(data_basedir, f'test_record-{time_tag}.json')
     tra_dir = os.path.join(data_basedir, 'tra_dir')
@@ -147,9 +147,11 @@ if __name__ == '__main__':
             print('create a new record')
             test_record = {x: {} for x in object_list}
             test_record['cfg'] = cfg
+            
         data_listdir = os.listdir(tra_dir)
         data_listdir.sort(key=lambda x: int(x.split('-')[2].split('.pt')[0]))
-        print(data_listdir)
+        print('data_listdir',data_listdir)
+        print('object_list',object_list)
         for object_name in object_list:
             # # todo: for debug
             # object_name = 'ycb+potted_meat_can'
@@ -158,12 +160,13 @@ if __name__ == '__main__':
             # load the data
             q_tra_best = []
             for tra_path in data_listdir:
-                if tra_path.split('-')[1] != object_name:
-                    continue
-                i_record = torch.load(os.path.join(tra_dir, tra_path))
-                q_tra = i_record['q_tra']
-                energy = i_record['energy']
-                q_tra_best.append(q_tra[energy.min(dim=0)[1], -1, :].unsqueeze(0).to(device))
+                if object_name in tra_path:
+                    # continue
+                    i_record = torch.load(os.path.join(tra_dir, tra_path))
+                    q_tra = i_record['q_tra']
+                    energy = i_record['energy']
+                    q_tra_best.append(q_tra[energy.min(dim=0)[1], -1, :].unsqueeze(0).to(device))
+            print('object_name',object_name,'q_tra_best',q_tra_best)
             q_final_best = torch.cat(q_tra_best, dim=0)
 
             print(cfg['eval_policy'])

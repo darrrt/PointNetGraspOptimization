@@ -29,7 +29,7 @@ def quat_axis(q, axis=0):
     return quat_rotate(q, basis_vec)
 
 
-class IsaacGraspTestForce_shadowhand(BaseTask):
+class IsaacGraspTestForce_allegro(BaseTask):
 
     def __init__(self, cfg, sim_params, physics_engine, device_type, device_id, headless,
                  init_opt_q: torch.tensor, object_name: str, object_volume: float,
@@ -258,7 +258,7 @@ class IsaacGraspTestForce_shadowhand(BaseTask):
         opt_q_angle.requires_grad = True
         opt_q = torch.cat([opt_q_global, opt_q_angle], dim=1)
         optimizer = torch.optim.Adam([opt_q_angle], lr=learning_rate)
-        hand_model = get_handmodel('shadowhand', self.env_num, self.device, 1.)
+        hand_model = get_handmodel('allegrohand', self.env_num, self.device, 1.)
         surface_points, surface_normal = hand_model.get_surface_points_and_normals(q=opt_q)
         surface_points = surface_points.reshape(-1, 3)
         surface_normal = surface_normal.reshape(-1, 3)
@@ -343,8 +343,8 @@ class IsaacGraspTestForce_shadowhand(BaseTask):
         if self.dexterous_loaded == False:
             self.dexterous_actor_list = []
             asset_root = self.asset_root
-            dexterous_asset_file='movable_hand_urdf/shadowhand/robots/movable_shadowhand.urdf'
-            # dexterous_asset_file = "franka_description/robots/movable_dexterous_hand_new.urdf"
+            
+            dexterous_asset_file = "franka_description/robots/movable_dexterous_hand_new.urdf"
             # dexterous_asset_file = "franka_description/robots/movable_dexterous_hand_fine_collision.urdf"
             asset_options = gymapi.AssetOptions()
             asset_options.density = self.cfg['agent']['density']

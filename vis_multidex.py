@@ -9,7 +9,7 @@ from utils.visualize_plotly import plot_mesh
 
 def get_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--robot_name', default='shadowhand', type=str)
+    parser.add_argument('--robot_name', default='allegro', type=str)
     parser.add_argument('--object_name', default='contactdb+apple', type=str)
     parser.add_argument('--num_vis', default=8, type=int)
     args_ = parser.parse_args()

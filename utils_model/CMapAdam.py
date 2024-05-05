@@ -66,7 +66,7 @@ class CMapAdam:
         self.object_radius = torch.max(torch.norm(self.object_point_cloud, dim=1, p=2))
         self.q_current = torch.zeros(self.num_particles, 3 + 6 + len(self.handmodel.revolute_joints),
                                      device=self.device)
-        random_rot = torch.tensor(R.random(self.num_particles).as_dcm(), device=self.device).float()
+        random_rot = torch.tensor(R.random(self.num_particles).as_matrix(), device=self.device).float()
 
         self.q_current[:, 3:9] = random_rot.reshape(self.num_particles, 9)[:, :6]
         # # TODO: for debug

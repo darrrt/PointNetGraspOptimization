@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 def get_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--robot_name', default='shadowhand', type=str)
+    parser.add_argument('--robot_name', default='allegro', type=str)
 
     parser.add_argument('--dataset', default='SqrtFullRobots', type=str)
     parser.add_argument('--dataset_id', default='SharpClamp_A3', type=str)
@@ -28,6 +28,8 @@ def get_parser():
     parser.add_argument('--object_id', default=1, type=int)
     parser.add_argument('--energy_func', default='align_dist', type=str)
     parser.add_argument('--comment', type=str)
+    parser.add_argument('--cmap_dataset', type=str, default='/home/user/xsj/GenDexGrasp/logs_inf_cvae/PointNetCVAE_SqrtUnseenShadowhand/sharp_lift/example-1714820067.769674')
+    
 
     args_ = parser.parse_args()
     tag = str(time.time())
@@ -65,11 +67,12 @@ if __name__ == '__main__':
                 shutil.copy(os.path.join(f'{src_dir}', fn), os.path.join(logs_basedir, 'src', f'{src_dir}', fn))
 
     robot_name = args.robot_name
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cuda:2" if torch.cuda.is_available() else "cpu"
 
     # load cmap inference dataset
     try:
-        cmap_dataset = torch.load(os.path.join(f'dataset/CMapInfSet/{args.dataset}/{args.dataset_id}', f'cmap_{args.domain}.pt'))
+        print('args.cmap_dataset',args.cmap_dataset,'args.domain',args.domain)
+        cmap_dataset = torch.load(os.path.join(f'{args.cmap_dataset}', f'cmap_{args.domain}.pt'))
     except FileNotFoundError:
         raise NotImplementedError('occur when load CMap Dataset...')
 
@@ -80,9 +83,9 @@ if __name__ == '__main__':
                       energy_func_name=args.energy_func)
     object_name_list = []
     if args.domain == 'ood':
-        object_name_list = json.load(open(os.path.join(f'dataset/CMapInfSet/{args.dataset}/{args.dataset_id}', 'split_train_validate_objects.json'), 'rb'))['validate']
+        object_name_list = json.load(open(os.path.join(f'dataset/CMapDataset-sqrt_align/split_train_validate_objects.json'), 'rb'))['validate']
     elif args.domain == 'id':
-        object_name_list = json.load(open(os.path.join(f'dataset/CMapInfSet/{args.dataset}/{args.dataset_id}', 'split_train_validate_objects.json'), 'rb'))['train']
+        object_name_list = json.load(open(os.path.join(f'dataset/CMapDataset-sqrt_align/split_train_validate_objects.json'), 'rb'))['train']
     else:
         raise NotImplementedError
     object_name_list.sort()
