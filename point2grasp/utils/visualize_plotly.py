@@ -77,12 +77,12 @@ def plot_point_cloud_occ(pts, color_levels=None):
     )
 
 
-contact_cmap = lambda levels, thres=0.: [f"rgb({int(0)},{int(255 * (1 - x))},{int(255 * (1 - x))})" if x >= thres else
+contact_cmap = lambda levels, thres=0.5: [f"rgb({int(0)},{int(255 * (1 - x))},{int(255 * (1 - x))})" if x >= thres else
                                          f"rgb({int(0)},{int(255 * (x))},{int(0)})" for x in levels.tolist()]
 
 def plot_point_cloud_cmap(pts, color_levels=None):
     return go.Scatter3d(
-        x=pts[:, 0],
+        x=pts[:, 0],    
         y=pts[:, 1],
         z=pts[:, 2],
         mode='markers',
@@ -153,10 +153,11 @@ def plot_grasps(directory, tag, uuids, physics_guide, handcodes, contact_idx, re
         return plots
     
 
-def plot_mesh_from_name(dataset_object_name, color='lightblue', opacity=1.):
-    dataset_name = dataset_object_name.split('+')[0]
-    object_name = dataset_object_name.split('+')[1]
-    mesh_path = os.path.join('data', 'object', dataset_name, object_name, f'{object_name}.stl')
+def plot_mesh_from_name(dataset_object_name, color='lightblue', opacity=1.,mesh_path=None):
+    if isinstance(mesh_path,type(None)):
+        dataset_name = dataset_object_name.split('+')[0]
+        object_name = dataset_object_name.split('+')[1]
+        mesh_path = os.path.join('data', 'object', dataset_name, object_name, f'{object_name}.stl')
     object_mesh = tm.load(mesh_path)
     return plot_mesh(object_mesh, color=color, opacity=opacity)
 

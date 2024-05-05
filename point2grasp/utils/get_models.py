@@ -1,11 +1,14 @@
 import json
+import os 
 from utils_model.HandModel import HandModel
+import point2grasp
 
-
-def get_handmodel(robot, batch_size, device, hand_scale=1.):
-    urdf_assets_meta = json.load(open("data/urdf/urdf_assets_meta.json"))
-    urdf_path = urdf_assets_meta['urdf_path'][robot]
-    meshes_path = urdf_assets_meta['meshes_path'][robot]
+def get_handmodel(robot, batch_size, device, hand_scale=1.,urdf_path=None,meshes_path=None,urdf_assets_meta_file=os.path.join(os.path.dirname(point2grasp.__file__),"../data/urdf/urdf_assets_meta.json")):
+    urdf_assets_meta = json.load(open(urdf_assets_meta_file))
+    if isinstance(urdf_path,type(None)):
+        urdf_path = urdf_assets_meta['urdf_path'][robot]
+    if isinstance(meshes_path,type(None)):
+        meshes_path = urdf_assets_meta['meshes_path'][robot]
     hand_model = HandModel(robot, urdf_path, meshes_path, batch_size=batch_size, device=device, hand_scale=hand_scale)
     return hand_model
 

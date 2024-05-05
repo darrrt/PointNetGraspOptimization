@@ -15,8 +15,7 @@ def get_parser():
     args_ = parser.parse_args()
     return args_
 
-
-if __name__ == '__main__':
+def run():
     args = get_parser()
     robot_name = args.robot_name
     object_name = args.object_name
@@ -37,3 +36,5 @@ if __name__ == '__main__':
         vis_data += [plot_mesh(mesh=tm.load(object_mesh_path))]
         fig = go.Figure(data=vis_data)
         fig.show()
+if __name__ == '__main__':
+    run()

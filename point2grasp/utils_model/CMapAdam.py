@@ -42,18 +42,20 @@ class CMapAdam:
         # self.handmodel = get_handmodel(robot_name, 1, device, hand_scale=1.)
         self.q_joint_lower = self.handmodel.revolute_joints_q_lower.detach()
         self.q_joint_upper = self.handmodel.revolute_joints_q_upper.detach()
+        print('self.q_joint_lower',self.q_joint_lower,'self.q_joint_upper',self.q_joint_upper)
         # self.q_joint_lower.requires_grad = True
         # self.q_joint_upper.requires_grad = True
 
         if contact_map_goal is not None:
             self.reset(contact_map_goal=contact_map_goal, running_name=running_name, energy_func_name=energy_func_name)
 
-    def reset(self, contact_map_goal, running_name, energy_func_name):
+    def reset(self, contact_map_goal, running_name, energy_func_name,q_joint_suggest=None):
         self.handmodel = get_handmodel(self.robot_name, self.num_particles, self.device, hand_scale=1.)
         energy_func_map = {'euclidean_dist': self.compute_energy_euclidean_dist,
-                           'align_dist': self.compute_energy_align_dist}
+                           'align_dist': self.compute_energy_align_dist,
+                           'align_dist_with_joint_range_penalty': self.compute_energy_align_dist_with_joint_range_penalty}
         self.compute_energy = energy_func_map[energy_func_name]
-
+        self.q_joint_suggest=q_joint_suggest
         self.running_name = running_name
         self.is_pruned = False
         self.best_index = None
@@ -226,7 +228,77 @@ class CMapAdam:
             return energy, energy_penetration, z_norm
         else:
             return energy
+    def compute_energy_align_dist_with_joint_range_penalty(self):
+        # hand_surface_points_ = self.handmodel.get_surface_points()
+        hand_surface_points_ = self.handmodel.get_surface_points_new()
+        hand_surface_points = hand_surface_points_.clone()
+        # compute contact value with align dist
+        npts_object = self.object_point_cloud.size()[0]
+        npts_hand = hand_surface_points.size()[1]
+        with torch.no_grad():
+            batch_object_point_cloud = self.object_point_cloud.unsqueeze(0).repeat(self.num_particles, 1, 1)
+            batch_object_point_cloud = batch_object_point_cloud.view(self.num_particles, 1, npts_object, 3)
+            batch_object_point_cloud = batch_object_point_cloud.repeat(1, npts_hand, 1, 1).transpose(1, 2)
+        hand_surface_points = hand_surface_points.view(self.num_particles, 1, npts_hand, 3)
+        hand_surface_points = hand_surface_points.repeat(1, npts_object, 1, 1)
 
+        with torch.no_grad():
+            batch_object_normal_cloud = self.object_normal_cloud.unsqueeze(0).repeat(self.num_particles, 1, 1)
+            batch_object_normal_cloud = batch_object_normal_cloud.view(self.num_particles, 1, npts_object, 3)
+            batch_object_normal_cloud = batch_object_normal_cloud.repeat(1, npts_hand, 1, 1).transpose(1, 2)
+        object_hand_dist = (hand_surface_points - batch_object_point_cloud).norm(dim=3)
+        object_hand_align = ((hand_surface_points - batch_object_point_cloud) *
+                             batch_object_normal_cloud).sum(dim=3)
+        object_hand_align /= (object_hand_dist + 1e-5)
+
+        object_hand_align_dist = object_hand_dist * torch.exp(2 * (1 - object_hand_align))
+        # TODO: add a mask of back points
+        # object_hand_align_dist = torch.where(object_hand_align > 0, object_hand_align_dist,
+        #                                      torch.ones_like(object_hand_align_dist))
+
+        contact_dist = torch.sqrt(object_hand_align_dist.min(dim=2)[0])
+        # contact_dist = object_hand_align_dist.min(dim=2)[0]
+        contact_value_current = 1 - 2 * (torch.sigmoid(10 * contact_dist) - 0.5)
+        energy_contact = torch.abs(contact_value_current - self.contact_value_goal.view(1, -1)).mean(dim=1)
+
+        # compute penetration
+        with torch.no_grad():
+            batch_object_point_cloud = self.object_point_cloud.unsqueeze(0).repeat(self.num_particles, 1, 1)
+            batch_object_point_cloud = batch_object_point_cloud.view(self.num_particles, 1, npts_object, 3)
+            batch_object_point_cloud = batch_object_point_cloud.repeat(1, npts_hand, 1, 1)
+
+        hand_surface_points = hand_surface_points_.view(self.num_particles, 1, npts_hand, 3)
+        hand_surface_points = hand_surface_points.repeat(1, npts_object, 1, 1).transpose(1, 2)
+        hand_object_dist = (hand_surface_points - batch_object_point_cloud).norm(dim=3)
+        hand_object_dist, hand_object_indices = hand_object_dist.min(dim=2)
+        hand_object_points = torch.stack([self.object_point_cloud[x, :] for x in hand_object_indices], dim=0)
+        hand_object_normal = torch.stack([self.object_normal_cloud[x, :] for x in hand_object_indices], dim=0)
+        # torch.gather()
+        hand_object_signs = ((hand_object_points - hand_surface_points_) * hand_object_normal).sum(dim=2)
+        hand_object_signs = (hand_object_signs > 0).float()
+        energy_penetration = (hand_object_signs * hand_object_dist).mean(dim=1)
+
+        energy = energy_contact + 100 * energy_penetration
+        # energy = energy_contact
+        # TODO: add a normalized energy
+        joint_displace_norm = F.relu(torch.abs(self.q_current[:, 9:] - self.q_joint_suggest))
+        z_norm = joint_displace_norm + F.relu(self.q_current[:, 9:] - self.q_joint_upper) + F.relu(self.q_joint_lower - self.q_current[:, 9:])
+        
+        if self.robot_name == 'robotiq_3finger':
+            self.energy = energy
+        elif self.robot_name == 'robotiq_3finger_real_robot':
+            # z_norm = F.relu(self.q_current[:, 9:] - self.q_joint_upper) + F.relu(self.q_joint_lower - self.q_current[:, 9:])
+            q_joint_mid = (self.q_joint_lower + self.q_joint_upper) / 2
+            q_joint_mid = (self.q_joint_lower + q_joint_mid) / 2
+            z_norm = torch.abs(self.q_current[:, 9:] - q_joint_mid).sum(dim=1)
+            self.energy = energy + z_norm * 0.2
+        else:
+            self.energy = energy + z_norm.sum(dim=1)
+
+        if self.verbose_energy:
+            return energy, energy_penetration, z_norm
+        else:
+            return energy
     def step(self):
         self.optimizer.zero_grad()
         self.handmodel.update_kinematics(q=self.q_current)

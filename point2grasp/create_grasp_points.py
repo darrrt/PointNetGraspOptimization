@@ -123,10 +123,11 @@ class Points2PointCloud():
             contact_map_goal = np.concatenate([self.object_point_cloud, contact_map_value], axis=1)
             vis_data += [plot_point_cloud_cmap(contact_map_goal[:, :3],
                                             contact_map_goal[:, 6])]
-            vis_data += [plot_mesh_from_name(f'{object_name}')]
+            vis_data += [plot_mesh_from_name(f'{object_name}',mesh_path=self.objects_config[object_name]["mesh_file"])]
             fig = go.Figure(data=vis_data)
             fig.write_html(os.path.join(vis_dir, f'{object_name}.html'))
         torch.save(cmap, cmap_path)
+        return cmap
 
 
 def get_parser():

@@ -22,9 +22,9 @@ class AdamGrasp:
                                   init_rand_scale=init_rand_scale, learning_rate=learning_rate, energy_func_name=self.energy_func_name,
                                   device=device)
 
-    def run_adam(self, object_name, contact_map_goal, running_name):
+    def run_adam(self, object_name, contact_map_goal, running_name,q_joint_suggest=None):
         q_trajectory = []
-        self.opt_model.reset(contact_map_goal, running_name, self.energy_func_name)
+        self.opt_model.reset(contact_map_goal, running_name, self.energy_func_name,q_joint_suggest)
         with torch.no_grad():
             opt_q = self.opt_model.get_opt_q()
             q_trajectory.append(opt_q.clone().detach())
