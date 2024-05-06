@@ -23,9 +23,9 @@ class ShadowHandGrounding():
         # 最大值手腕内翻，最小值手腕外翻
         
         # thumb finger 
-        joint_mapping['THJ5']=joints[1]
-        joint_mapping['THJ4']=joints[0]
-        joint_mapping['THJ3']=joints[0]*0.3
+        joint_mapping['THJ5']=np.min([0.5,np.max([-0.5,joints[0]-np.pi/4])])
+        joint_mapping['THJ4']=joints[1]
+        joint_mapping['THJ3']=joints[1]*0.3
         joint_mapping['THJ2']=joints[2]
         joint_mapping['THJ1']=joints[3]
         
@@ -43,7 +43,7 @@ class ShadowHandGrounding():
         
         # ring finger 
         joint_mapping['RFJ4']=-joints[12]
-        joint_mapping['RFJ3']=joints[14]
+        joint_mapping['RFJ3']=joints[13]
         joint_mapping['RFJ2']=joints[14]
         joint_mapping['RFJ1']=joints[15]
         
@@ -60,6 +60,8 @@ class ShadowHandGrounding():
                 suggest_joints[idx]=179.
             elif suggest_joints[idx]==-180.:
                 suggest_joints[idx]=-179.
-        palm_ori=transform.euler_angles_to_matrix(suggest_joints[:3]*torch.pi/180,convention='XYZ')
+            elif suggest_joints[idx]==0.0:
+                suggest_joints[idx]=1.0
+        palm_ori=transform.euler_angles_to_matrix(torch.tensor([0,0,-90])*torch.pi/180,convention='XYZ')@transform.euler_angles_to_matrix(suggest_joints[:3]*torch.pi/180,convention='XYZ')
         return palm_ori,joints_in_sequence
 

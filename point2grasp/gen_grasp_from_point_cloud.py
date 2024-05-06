@@ -23,7 +23,7 @@ def get_parser():
 
     parser.add_argument('--dataset', default='SqrtFullRobots', type=str)
     parser.add_argument('--dataset_id', default='SharpClamp_A3', type=str)
-    parser.add_argument('--max_iter', default=100, type=int)
+    parser.add_argument('--max_iter', default=200, type=int)
     parser.add_argument('--steps_per_iter', default=1, type=int)
     parser.add_argument('--num_particles', default=32, type=int)
     parser.add_argument('--learning_rate', default=5e-3, type=float)
@@ -33,7 +33,7 @@ def get_parser():
     parser.add_argument('--object_id', default=1, type=int)
     parser.add_argument('--energy_func', default='align_dist', type=str)
     parser.add_argument('--comment', type=str)
-    parser.add_argument('--cmap_dataset', type=str, default='/home/user/xsj/GenDexGrasp/logs_inf_cvae/PointNetCVAE_SqrtFullRobots/sharp_lift/test_05_06_15_29_01-1714980541.8182225')
+    parser.add_argument('--cmap_dataset', type=str, default='/home/user/xsj/GenDexGrasp/logs_inf_cvae/PointNetCVAE_SqrtFullRobots/sharp_lift/test_05_06_16_30_05-1714984205.0652566')
     parser.add_argument('--goal_orinented', default=True, type=bool)
     parser.add_argument('--enable_goal_orinented_penalty', default=True, type=bool)
     
@@ -106,11 +106,11 @@ if __name__ == '__main__':
         
         if args.goal_orinented:
             grasp_suggestion_palm_ori_tensor=i_data['grasp_suggestion_palm_ori']
+            # grasp_suggestion_palm_ori_tensor[:]=torch.tensor([0,90,90])
             grasp_suggestion_finger_joints_tensor=i_data['grasp_suggestion_finger_joints']
             suggest_params=torch.cat((grasp_suggestion_palm_ori_tensor,grasp_suggestion_finger_joints_tensor)).view(-1)
             print('grasp_suggestion_palm_ori_list,grasp_suggestion_finger_joints_list',suggest_params)
             q_rot_suggest,q_joint_suggest=handGrounding.mapping(suggest_params)
-            
             record = model.run_adam(object_name=object_name, contact_map_goal=contact_map_goal, running_name=running_name,q_joint_suggest=torch.tensor(q_joint_suggest).view(1,-1),q_rot_suggest=torch.tensor(q_rot_suggest).view(1,-1))
         else:
             record = model.run_adam(object_name=object_name, contact_map_goal=contact_map_goal, running_name=running_name)
@@ -123,6 +123,9 @@ if __name__ == '__main__':
                         'object_name': object_name,
                         'goal_orinented':args.goal_orinented,
                         }
+            print(q_tra.shape)
+            best_idx=torch.argmin(energy)
+            print('np.argmin(energy),np.min(energy)',best_idx,torch.min(energy))
             torch.save(i_record, os.path.join(tra_dir, f'tra-{object_name}.pt'))
-            model.opt_model.savefig(os.path.join(logs_basedir, f'tra-{object_name}'),mesh_file_path=i_data['mesh_file'])
+            model.opt_model.savefig(os.path.join(logs_basedir, f'tra-{object_name}'),mesh_file_path=i_data['mesh_file'],bold_q=q_tra[best_idx])
 

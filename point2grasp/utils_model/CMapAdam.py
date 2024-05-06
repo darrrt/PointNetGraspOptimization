@@ -91,7 +91,7 @@ class CMapAdam:
         if isinstance(self.q_rot_suggest,type(None)):
             random_rot = torch.tensor(R.random(self.num_particles).as_matrix(), device=self.device).float()
         else:
-            random_rot = self.q_rot_suggest@transform.axis_angle_to_matrix(torch.randn((32,3), device=self.device))
+            random_rot = self.q_rot_suggest@transform.axis_angle_to_matrix(torch.randn((self.num_particles,3), device=self.device)*0.2)
             # 正态分布生成轴角，并且右乘到建议的旋转上
 
         self.q_current[:, 3:9] = random_rot.reshape(self.num_particles, 9)[:, :6]
@@ -110,6 +110,7 @@ class CMapAdam:
             hand_normal *= self.distance_init
             hand_normal = torch.einsum('bmn,nk->bmk', random_rot.transpose(2, 1), hand_normal).squeeze(2)
         elif self.robot_name == 'shadowhand':
+            hand_center_position[:,1]-=0.03
             hand_normal = torch.Tensor([[0., -1., 0.]]).to(self.device).T.float()
             hand_normal *= self.distance_init
             hand_normal = torch.einsum('bmn,nk->bmk', random_rot.transpose(2, 1), hand_normal).squeeze(2)
@@ -139,12 +140,14 @@ class CMapAdam:
             # 也即q_current[:, :3]为掌心负法向
         else:
             self.q_current[:, :3] = self.q_pos_suggest
+        self.q_current[:, :3] += torch.randn((self.num_particles,3),device=self.device)/800
+        
         
         if isinstance(self.q_joint_suggest,type(None)):
             self.q_current[:, 9:] = self.init_random_scale * torch.rand_like(self.q_current[:, 9:]) * (self.q_joint_upper - self.q_joint_lower) + self.q_joint_lower
         else:
             self.q_joint_suggest=torch.minimum(torch.maximum(self.q_joint_lower[0],self.q_joint_suggest),self.q_joint_upper[0])
-            self.q_current[:, 9:] = self.init_random_scale * torch.rand_like(self.q_current[:, 9:]) * (self.q_joint_upper - self.q_joint_lower) + self.q_joint_suggest
+            self.q_current[:, 9:] = self.init_random_scale*0.2 * torch.rand_like(self.q_current[:, 9:]) * (self.q_joint_upper - self.q_joint_lower) + self.q_joint_suggest
         # self.q_current[:, 9:] = torch.zeros_like(self.q_current[:, 9:])
 
         # self.q_current = self.q_current.detach()
@@ -316,11 +319,11 @@ class CMapAdam:
         energy = energy_contact + 100 * energy_penetration
         # energy = energy_contact
         # TODO: add a normalized energy
-        rot_displace_norm = F.relu(torch.norm(transform.matrix_to_axis_angle(self.handmodel.global_rotation[:,]@(self.q_rot_suggest_inv)),dim=1))
+        rot_displace_norm = F.relu(torch.norm(transform.matrix_to_axis_angle(self.handmodel.global_rotation[:,]@(self.q_rot_suggest_inv)),dim=1))*2
         # pos_displace_norm = F.relu(torch.norm(self.handmodel.global_translation-self.q_pos_suggest),dim=1)
         
-        joint_displace_norm = F.relu(torch.abs(self.q_current[:, 9:] - self.q_joint_suggest))*5
-        z_norm = joint_displace_norm + F.relu(self.q_current[:, 9:] - self.q_joint_upper) + F.relu(self.q_joint_lower - self.q_current[:, 9:])
+        joint_displace_norm = F.relu(torch.abs(self.q_current[:, 9:] - self.q_joint_suggest))
+        z_norm = joint_displace_norm + (F.relu(self.q_current[:, 9:] - self.q_joint_upper) + F.relu(self.q_joint_lower - self.q_current[:, 9:]))*0.5
         
         if self.robot_name == 'robotiq_3finger':
             self.energy = energy
@@ -367,12 +370,15 @@ class CMapAdam:
     def get_plotly_data(self, index=0, color='pink', opacity=0.7):
         # self.handmodel.update_kinematics(q=self.q_current)
         return self.handmodel.get_plotly_data(q=self.q_current, i=index, color=color, opacity=opacity)
-    def savefig(self,file_path,mesh_file_path):
+    def savefig(self,file_path,mesh_file_path,bold_q=None):
         init_opt_q=self.get_opt_q()
         vis_data = []
         for i in range(init_opt_q.shape[0]):
             vis_data += self.handmodel.get_plotly_data(i=i, opacity=0.5, color='pink')
-        vis_data += self.handmodel.get_plotly_data(i=0, opacity=0.5, color='pink')
+        if not isinstance(bold_q,type(None)):
+            temp_handmodel = get_handmodel(self.robot_name, 1, self.device, 1.)
+            temp_handmodel.update_kinematics(q=bold_q)
+            vis_data += temp_handmodel.get_plotly_data(q=bold_q,i=0, opacity=0.7, color='purple')
         vis_data += [plot_mesh_from_name('object_name',mesh_path=mesh_file_path)]
         fig = go.Figure(data=vis_data)
         fig.write_html("{}.html".format(file_path))

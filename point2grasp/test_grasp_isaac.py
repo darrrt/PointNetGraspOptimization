@@ -19,8 +19,7 @@ import point2grasp
 def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument('--robot_name', default='shadowhand', type=str)
-
-    parser.add_argument('--dataset', default='SqrtFullRobots-SharpClamp_A3/ood-shadowhand-None/align_dist', type=str)
+    parser.add_argument('--dataset', default='SqrtFullRobots-SharpClamp_A3/ood-shadowhand-None/align_dist_with_joint_range_penalty', type=str)
     parser.add_argument('--domain', default='ood', type=str)
     parser.add_argument('--comment', default='correct', type=str)
     parser.add_argument('--base_name', default='align_dist', type=str)
@@ -143,10 +142,10 @@ if __name__ == '__main__':
     if args.mode == 'debug':
         pass
     elif args.mode == 'test':
-        # try:
+        try:
         #     # # todo: skip load new record
         #     # raise FileNotFoundError
-        test_record = json.load(open(record_path, 'rb'))
+            test_record = json.load(open(record_path, 'rb'))
         #     old_object_list = object_list.copy()
         #     for object_name in old_object_list:
         #         if bool(test_record[object_name]):
@@ -154,10 +153,10 @@ if __name__ == '__main__':
         #     del old_object_list
         #     print(f'load record from: {record_path} ...')
         #     print(f'object list: {object_list}')
-        # except FileNotFoundError:
-        #     print('create a new record')
-        #     test_record = {x: {} for x in object_list}
-        #     test_record['cfg'] = cfg
+        except FileNotFoundError:
+            print('create a new record')
+            test_record = {x: {} for x in object_list}
+            test_record['cfg'] = cfg
             
 
         # data_listdir.sort(key=lambda x: int(x.split('-')[2].split('.pt')[0]))

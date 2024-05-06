@@ -31,16 +31,51 @@ objects_config={
             "front_mid":[[0,-0.01,0,0.05,0,1,0]],
             
         }
-    }
+    },
+    "ycb+bleach_cleanser":{},
+    "cracker_box":{},
+    "ycb+hammer":{},
+    "ycb+master_chef_can":{},
+    "ycb+mustard_bottle":{},
+    "ycb+phillips_screwdriver":{},
+    "ycb+pitcher_base":{},
+    "ycb+power_drill":{},
+    
+    "contactdb+airplane":{},
+    "contactdb+binoculars":{},
+    "contactdb+bowl":{},
+    "contactdb+camera":{},
+    "contactdb+cup":{},
+    "contactdb+door_knob":{},
+    "contactdb+eyeglasses":{},
+    "contactdb+flashlight":{},
+    "contactdb+hammer":{},
+    "contactdb+hand":{},
+    "contactdb+headphones":{},
+    "contactdb+knife":{},
+    "contactdb+light_bulb":{},
+    "contactdb+mouse":{},
+    "contactdb+mug":{},
+    "contactdb+pan":{},
+    "contactdb+ps_controller":{},
+    "contactdb+scissors":{},
+    "contactdb+stapler":{},
+    "contactdb+toothbrush":{},
+    "contactdb+toothpaste":{},
+    "contactdb+utah_teapot":{},
+    "contactdb+water_bottle":{},
+    "contactdb+wine_glass":{},
+    "contactdb+wristwatch":{},
 }
 demands_test={
     'contactdb+alarm_clock':{
         "enhance":[[0.005,0.01,0.04,0.01,-0.05,0.003,-0.05],[0.003,0,0.05,0.01,0,0,-1],'back_mid','front_mid'],
         "weaken":[],
         "grasp_suggestion_palm_ori":[90,180,0],
-        "grasp_suggestion_finger_joints":[90,90,45,45]+[0,90,0,0]*4,
+        "grasp_suggestion_finger_joints":[0,45,45,45]+[0,90,0,0]*4,
         "grasp_description":"Hold the clock with your thumb and four fingers. The thumb is on the front of the clock and the four fingers are on the side of the clock."
-    }
+    },
+   
 }
 class Points2PointCloud():
     def __init__(self,objects_config=objects_config,device='cuda') -> None:
@@ -86,8 +121,8 @@ class Points2PointCloud():
                             'contact_map_value': None,
                             "enhance":demands[object_name]['enhance'],
                             "weaken":demands[object_name]['weaken'],
-                            "grasp_suggestion_palm_ori":torch.tensor(demands[object_name]['grasp_suggestion_palm_ori']),
-                            "grasp_suggestion_finger_joints":torch.tensor(demands[object_name]['grasp_suggestion_finger_joints']),
+                            "grasp_suggestion_palm_ori":torch.tensor(demands[object_name]['grasp_suggestion_palm_ori'],dtype=torch.float),
+                            "grasp_suggestion_finger_joints":torch.tensor(demands[object_name]['grasp_suggestion_finger_joints'],dtype=torch.float),
                             "grasp_description":demands[object_name]['grasp_description'],
                             "mesh_file":self.objects_config[object_name]["mesh_file"]
                             }
