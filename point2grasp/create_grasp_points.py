@@ -27,14 +27,19 @@ objects_config={
         "mesh_file":os.path.join('data/object', "contactdb+alarm_clock".split('+')[0], "contactdb+alarm_clock".split("+")[1],f'{"contactdb+alarm_clock".split("+")[1]}.stl'),
         "pre_defined_feature":{
             # "left_ear":[x,y,z,r,nx,ny,nz] 法向量
-            "left_ear":[]
+            "back_mid":[[0,0.02,0,0.05,0,-1,0]],
+            "front_mid":[[0,-0.01,0,0.05,0,1,0]],
+            
         }
     }
 }
 demands_test={
     'contactdb+alarm_clock':{
-        "enhance":[[0.005,0.01,0.04,0.01,-0.05,0.003,-0.05],[0.003,0,0.05,0.01,0,0,-1],[0,0.02,0,0.1,0,-1,0]],
-        "weaken":[]
+        "enhance":[[0.005,0.01,0.04,0.01,-0.05,0.003,-0.05],[0.003,0,0.05,0.01,0,0,-1],'back_mid','front_mid'],
+        "weaken":[],
+        "grasp_suggestion_palm_ori":[90,180,0],
+        "grasp_suggestion_finger_joints":[90,90,45,45]+[0,90,0,0]*4,
+        "grasp_description":"Hold the clock with your thumb and four fingers. The thumb is on the front of the clock and the four fingers are on the side of the clock."
     }
 }
 class Points2PointCloud():
@@ -69,7 +74,7 @@ class Points2PointCloud():
         return contact_map
 
 
-    def genPointCloud(self,objects_list:list,demands:dict,cmap_path:str,vis_dir:str):
+    def genPointCloud(self,objects_list:list,demands:dict,cmap_path:str,vis_dir:str,if_post_process=False):
         cmap = []
         for object_name in objects_list:
             
@@ -78,7 +83,14 @@ class Points2PointCloud():
             
             cmap_sample = {'object_name': object_name,
                             'object_point_cloud': None,
-                            'contact_map_value': None}
+                            'contact_map_value': None,
+                            "enhance":demands[object_name]['enhance'],
+                            "weaken":demands[object_name]['weaken'],
+                            "grasp_suggestion_palm_ori":torch.tensor(demands[object_name]['grasp_suggestion_palm_ori']),
+                            "grasp_suggestion_finger_joints":torch.tensor(demands[object_name]['grasp_suggestion_finger_joints']),
+                            "grasp_description":demands[object_name]['grasp_description'],
+                            "mesh_file":self.objects_config[object_name]["mesh_file"]
+                            }
             object_point_cloud, faces_indices = trimesh.sample.sample_surface_even(mesh=object_mesh, count=2048)
             # 当前采样点所在面的法向量
             contact_points_normal = [object_mesh.face_normals[x] for x in faces_indices]
@@ -92,23 +104,25 @@ class Points2PointCloud():
             # contact_map_value = contact_map_value.detach().cpu().unsqueeze(1)
             enhance_area=[]
             for demand in demands[object_name]['enhance']:
-                if isinstance(demand[0],str):
-                    enhance_area.append(self.objects_config[object_name]['pre_defined_feature'][demand[0]])
+                if isinstance(demand,str):
+                    for li in self.objects_config[object_name]['pre_defined_feature'][demand]:
+                        enhance_area.append(li)
                 else:
                     enhance_area.append(demand)
             self.enhance_area=np.array(enhance_area).reshape(-1,7)
             
             weaken_area=[]
             for demand in demands[object_name]['weaken']:
-                if isinstance(demand[0],str):
-                    weaken_area.append(self.objects_config[object_name]['pre_defined_feature'][demand[0]])
+                if isinstance(demand,str):
+                    for li in self.objects_config[object_name]['pre_defined_feature'][demand]:
+                        weaken_area.append(li)
                 else:
                     weaken_area.append(demand)
             self.weaken_area=np.array(weaken_area).reshape(-1,7)
             print(f'object name: {object_name} enhance {self.enhance_area.shape[0]} weaken {self.weaken_area.shape[0]}')
             contact_map_value = self.calcContactArea()
-            
-            contact_map_value = pre_process_sharp_clamp_np(contact_map_value)
+            if if_post_process:
+                contact_map_value = pre_process_sharp_clamp_np(contact_map_value)
             
             # print('object_point_cloud',object_point_cloud.shape,'contact_map_value',contact_map_value.shape)
             # hist, bin_edges=np.histogram(contact_map_value.cpu().numpy(),bins=100)
@@ -126,6 +140,7 @@ class Points2PointCloud():
             vis_data += [plot_mesh_from_name(f'{object_name}',mesh_path=self.objects_config[object_name]["mesh_file"])]
             fig = go.Figure(data=vis_data)
             fig.write_html(os.path.join(vis_dir, f'{object_name}.html'))
+            fig.write_image(file=os.path.join(vis_dir, f'{object_name}.svg'),format='svg')
         torch.save(cmap, cmap_path)
         return cmap
 

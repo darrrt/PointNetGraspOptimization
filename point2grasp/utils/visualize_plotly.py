@@ -78,7 +78,7 @@ def plot_point_cloud_occ(pts, color_levels=None):
 
 
 contact_cmap = lambda levels, thres=0.5: [f"rgb({int(0)},{int(255 * (1 - x))},{int(255 * (1 - x))})" if x >= thres else
-                                         f"rgb({int(0)},{int(255 * (x))},{int(0)})" for x in levels.tolist()]
+                                         f"rgb({int(255 * (1-x))},{int(255 * (1-x))},{int(0)})" for x in levels.tolist()]
 
 def plot_point_cloud_cmap(pts, color_levels=None):
     return go.Scatter3d(

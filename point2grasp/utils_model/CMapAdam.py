@@ -7,7 +7,9 @@ from scipy.spatial.transform import Rotation as R
 import torch
 from utils.get_models import get_handmodel
 import torch.nn.functional as F
-
+import pytorch3d.transforms as transform
+import plotly.graph_objects as go
+from utils.visualize_plotly import plot_mesh_from_name
 
 class CMapAdam:
     def __init__(self, robot_name, contact_map_goal=None,
@@ -42,20 +44,37 @@ class CMapAdam:
         # self.handmodel = get_handmodel(robot_name, 1, device, hand_scale=1.)
         self.q_joint_lower = self.handmodel.revolute_joints_q_lower.detach()
         self.q_joint_upper = self.handmodel.revolute_joints_q_upper.detach()
-        print('self.q_joint_lower',self.q_joint_lower,'self.q_joint_upper',self.q_joint_upper)
+        print('self.robot.get_joint_parameter_names()',self.handmodel.robot.get_joint_parameter_names())
+        print('self.q_joint_lower',self.q_joint_lower[0],'self.q_joint_upper',self.q_joint_upper[0])
         # self.q_joint_lower.requires_grad = True
         # self.q_joint_upper.requires_grad = True
 
         if contact_map_goal is not None:
             self.reset(contact_map_goal=contact_map_goal, running_name=running_name, energy_func_name=energy_func_name)
 
-    def reset(self, contact_map_goal, running_name, energy_func_name,q_joint_suggest=None):
+    def reset(self, contact_map_goal, running_name, energy_func_name,q_joint_suggest=None,q_rot_suggest=None,q_pos_suggest=None):
+        # q_rot_suggest 输入为一个rotation matrix
         self.handmodel = get_handmodel(self.robot_name, self.num_particles, self.device, hand_scale=1.)
         energy_func_map = {'euclidean_dist': self.compute_energy_euclidean_dist,
                            'align_dist': self.compute_energy_align_dist,
                            'align_dist_with_joint_range_penalty': self.compute_energy_align_dist_with_joint_range_penalty}
         self.compute_energy = energy_func_map[energy_func_name]
-        self.q_joint_suggest=q_joint_suggest
+        if isinstance(q_joint_suggest,type(None)):
+            self.q_joint_suggest=None
+        else:
+            self.q_joint_suggest=q_joint_suggest.view(1,-1).to(self.device)
+            
+        if isinstance(q_rot_suggest,type(None)):
+            self.q_rot_suggest=None
+        else:
+            self.q_rot_suggest=q_rot_suggest.view(1,3,3).to(self.device)
+            self.q_rot_suggest_inv=q_rot_suggest.view(3,3).T.view(1,3,3).to(self.device)
+            
+        if isinstance(q_pos_suggest,type(None)):
+            self.q_pos_suggest=None
+        else:
+            self.q_pos_suggest=q_pos_suggest.view(1,3).to(self.device)
+        # 看起来好像只需要有掌心的法向就可以 似乎不需要有精确位置 那么应该只需要保留qrot？
         self.running_name = running_name
         self.is_pruned = False
         self.best_index = None
@@ -66,11 +85,17 @@ class CMapAdam:
         self.object_normal_cloud = contact_map_goal[:, 3:6].to(self.device)
         self.contact_value_goal = contact_map_goal[:, 6].to(self.device)
         self.object_radius = torch.max(torch.norm(self.object_point_cloud, dim=1, p=2))
+        # 这个物体导入进来认为圆心在物体的几何中心
         self.q_current = torch.zeros(self.num_particles, 3 + 6 + len(self.handmodel.revolute_joints),
                                      device=self.device)
-        random_rot = torch.tensor(R.random(self.num_particles).as_matrix(), device=self.device).float()
+        if isinstance(self.q_rot_suggest,type(None)):
+            random_rot = torch.tensor(R.random(self.num_particles).as_matrix(), device=self.device).float()
+        else:
+            random_rot = self.q_rot_suggest@transform.axis_angle_to_matrix(torch.randn((32,3), device=self.device))
+            # 正态分布生成轴角，并且右乘到建议的旋转上
 
         self.q_current[:, 3:9] = random_rot.reshape(self.num_particles, 9)[:, :6]
+        # 3-9为一个随机的旋转，rotation matrix 但是只去了前六个 也就是rotation6d
         # # TODO: for debug
         # self.handmodel.update_kinematics(q=self.q_current)
         hand_center_position = torch.mean(self.handmodel.get_surface_points(q=self.q_current), dim=1)
@@ -106,10 +131,20 @@ class CMapAdam:
             hand_normal = torch.einsum('bmn,nk->bmk', random_rot.transpose(2, 1), hand_normal).squeeze(2)
         else:
             raise NotImplementedError()
-
-        self.q_current[:, :3] = -hand_center_position
-        self.q_current[:, :3] -= hand_normal * self.object_radius
-        self.q_current[:, 9:] = self.init_random_scale * torch.rand_like(self.q_current[:, 9:]) * (self.q_joint_upper - self.q_joint_lower) + self.q_joint_lower
+        if isinstance(self.q_pos_suggest,type(None)):
+            self.q_current[:, :3] = -hand_center_position
+            # 相当于把手的中心移动到原点
+            self.q_current[:, :3] -= hand_normal * self.object_radius
+            # 将手朝着掌心负法向移动
+            # 也即q_current[:, :3]为掌心负法向
+        else:
+            self.q_current[:, :3] = self.q_pos_suggest
+        
+        if isinstance(self.q_joint_suggest,type(None)):
+            self.q_current[:, 9:] = self.init_random_scale * torch.rand_like(self.q_current[:, 9:]) * (self.q_joint_upper - self.q_joint_lower) + self.q_joint_lower
+        else:
+            self.q_joint_suggest=torch.minimum(torch.maximum(self.q_joint_lower[0],self.q_joint_suggest),self.q_joint_upper[0])
+            self.q_current[:, 9:] = self.init_random_scale * torch.rand_like(self.q_current[:, 9:]) * (self.q_joint_upper - self.q_joint_lower) + self.q_joint_suggest
         # self.q_current[:, 9:] = torch.zeros_like(self.q_current[:, 9:])
 
         # self.q_current = self.q_current.detach()
@@ -281,7 +316,10 @@ class CMapAdam:
         energy = energy_contact + 100 * energy_penetration
         # energy = energy_contact
         # TODO: add a normalized energy
-        joint_displace_norm = F.relu(torch.abs(self.q_current[:, 9:] - self.q_joint_suggest))
+        rot_displace_norm = F.relu(torch.norm(transform.matrix_to_axis_angle(self.handmodel.global_rotation[:,]@(self.q_rot_suggest_inv)),dim=1))
+        # pos_displace_norm = F.relu(torch.norm(self.handmodel.global_translation-self.q_pos_suggest),dim=1)
+        
+        joint_displace_norm = F.relu(torch.abs(self.q_current[:, 9:] - self.q_joint_suggest))*5
         z_norm = joint_displace_norm + F.relu(self.q_current[:, 9:] - self.q_joint_upper) + F.relu(self.q_joint_lower - self.q_current[:, 9:])
         
         if self.robot_name == 'robotiq_3finger':
@@ -293,8 +331,9 @@ class CMapAdam:
             z_norm = torch.abs(self.q_current[:, 9:] - q_joint_mid).sum(dim=1)
             self.energy = energy + z_norm * 0.2
         else:
-            self.energy = energy + z_norm.sum(dim=1)
-
+            # self.energy = energy + z_norm.sum(dim=1) + pos_displace_norm + rot_displace_norm
+            self.energy = energy + z_norm.sum(dim=1) + rot_displace_norm
+            
         if self.verbose_energy:
             return energy, energy_penetration, z_norm
         else:
@@ -328,8 +367,18 @@ class CMapAdam:
     def get_plotly_data(self, index=0, color='pink', opacity=0.7):
         # self.handmodel.update_kinematics(q=self.q_current)
         return self.handmodel.get_plotly_data(q=self.q_current, i=index, color=color, opacity=opacity)
-
-
+    def savefig(self,file_path,mesh_file_path):
+        init_opt_q=self.get_opt_q()
+        vis_data = []
+        for i in range(init_opt_q.shape[0]):
+            vis_data += self.handmodel.get_plotly_data(i=i, opacity=0.5, color='pink')
+        vis_data += self.handmodel.get_plotly_data(i=0, opacity=0.5, color='pink')
+        vis_data += [plot_mesh_from_name('object_name',mesh_path=mesh_file_path)]
+        fig = go.Figure(data=vis_data)
+        fig.write_html("{}.html".format(file_path))
+        fig.write_image(file="{}.svg".format(file_path),format='svg')
+        fig.show()
+        
 if __name__ == '__main__':
     import argparse
     from utils.set_seed import set_global_seed

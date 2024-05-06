@@ -34,6 +34,7 @@ class HandModel:
         # prepare model
         self.robot = pk.build_chain_from_urdf(open(urdf_filename).read()).to(dtype=torch.float, device=self.device)
         self.robot_full = URDF_PARSER.URDF.from_xml_file(urdf_filename)
+        
         # prepare contact point basis and surface point samples
         # self.no_contact_dict = json.load(open(os.path.join('data', 'urdf', 'intersection_%s.json'%robot_name)))
 

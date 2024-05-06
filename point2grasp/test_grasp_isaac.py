@@ -121,36 +121,45 @@ if __name__ == '__main__':
     device = "cuda"
 
     # load dataset
-    object_list=[]
-    object_list+= json.load(open(os.path.join('dataset/CMapDataset-sqrt_align', 'split_train_validate_objects.json'), 'rb'))['validate']
-    object_list+= json.load(open(os.path.join('dataset/CMapDataset-sqrt_align', 'split_train_validate_objects.json'), 'rb'))['train']
-    object_list.sort()
+    object_list_all=[]
+    object_list_all+= json.load(open(os.path.join('dataset/CMapDataset-sqrt_align', 'split_train_validate_objects.json'), 'rb'))['validate']
+    object_list_all+= json.load(open(os.path.join('dataset/CMapDataset-sqrt_align', 'split_train_validate_objects.json'), 'rb'))['train']
+    object_list_all.sort()
     data_basedir = os.path.join(os.path.join(os.path.dirname(point2grasp.__file__),'../logs_gen'), args.dataset)
     record_path = os.path.join(data_basedir, f'test_record-{time_tag}.json')
     tra_dir = os.path.join(data_basedir, 'tra_dir')
     tra_path_list = os.listdir(tra_dir)
 
     isaac_model = None
+    
+    data_listdir = os.listdir(tra_dir)
+    object_list=[]
+    for object_name in object_list_all:
+        for test_name in data_listdir:
+            print(object_name , test_name,object_name in test_name)
+            if object_name in test_name:
+                object_list.append(object_name)
+                break
     if args.mode == 'debug':
         pass
     elif args.mode == 'test':
-        try:
-            # # todo: skip load new record
-            # raise FileNotFoundError
-            test_record = json.load(open(record_path, 'rb'))
-            old_object_list = object_list.copy()
-            for object_name in old_object_list:
-                if bool(test_record[object_name]):
-                    object_list.remove(object_name)
-            del old_object_list
-            print(f'load record from: {record_path} ...')
-            print(f'object list: {object_list}')
-        except FileNotFoundError:
-            print('create a new record')
-            test_record = {x: {} for x in object_list}
-            test_record['cfg'] = cfg
+        # try:
+        #     # # todo: skip load new record
+        #     # raise FileNotFoundError
+        test_record = json.load(open(record_path, 'rb'))
+        #     old_object_list = object_list.copy()
+        #     for object_name in old_object_list:
+        #         if bool(test_record[object_name]):
+        #             object_list.remove(object_name)
+        #     del old_object_list
+        #     print(f'load record from: {record_path} ...')
+        #     print(f'object list: {object_list}')
+        # except FileNotFoundError:
+        #     print('create a new record')
+        #     test_record = {x: {} for x in object_list}
+        #     test_record['cfg'] = cfg
             
-        data_listdir = os.listdir(tra_dir)
+
         # data_listdir.sort(key=lambda x: int(x.split('-')[2].split('.pt')[0]))
         print('data_listdir',data_listdir)
         print('object_list',object_list)
