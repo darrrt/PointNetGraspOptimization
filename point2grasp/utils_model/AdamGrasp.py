@@ -28,7 +28,7 @@ class AdamGrasp:
         with torch.no_grad():
             opt_q = self.opt_model.get_opt_q()
             q_trajectory.append(opt_q.clone().detach())
-        iters_per_print = self.max_iter // 4 if self.max_iter>4 else self.max_iter
+        iters_per_print = 8 if self.max_iter>8 else 2
         for i_iter in tqdm(range(self.max_iter), desc=f'{running_name}'):
             self.opt_model.step()
             with torch.no_grad():

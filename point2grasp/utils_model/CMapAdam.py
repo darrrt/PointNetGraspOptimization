@@ -319,10 +319,10 @@ class CMapAdam:
         energy = energy_contact + 100 * energy_penetration
         # energy = energy_contact
         # TODO: add a normalized energy
-        rot_displace_norm = F.relu(torch.norm(transform.matrix_to_axis_angle(self.handmodel.global_rotation[:,]@(self.q_rot_suggest_inv)),dim=1))*2
+        rot_displace_norm = F.relu(torch.norm(transform.matrix_to_axis_angle(self.handmodel.global_rotation[:,]@(self.q_rot_suggest_inv)),dim=1))*0.3
         # pos_displace_norm = F.relu(torch.norm(self.handmodel.global_translation-self.q_pos_suggest),dim=1)
         
-        joint_displace_norm = F.relu(torch.abs(self.q_current[:, 9:] - self.q_joint_suggest))
+        joint_displace_norm = F.relu(torch.abs(self.q_current[:, 9:] - self.q_joint_suggest))*0.3
         z_norm = joint_displace_norm + (F.relu(self.q_current[:, 9:] - self.q_joint_upper) + F.relu(self.q_joint_lower - self.q_current[:, 9:]))*0.5
         
         if self.robot_name == 'robotiq_3finger':

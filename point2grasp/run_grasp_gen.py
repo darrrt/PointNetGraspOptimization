@@ -18,9 +18,9 @@ def get_parser():
 
     parser.add_argument('--dataset', default='SqrtFullRobots', type=str)
     parser.add_argument('--dataset_id', default='SharpClamp_A3', type=str)
-    parser.add_argument('--max_iter', default=100, type=int)
+    parser.add_argument('--max_iter', default=1000, type=int)
     parser.add_argument('--steps_per_iter', default=1, type=int)
-    parser.add_argument('--num_particles', default=32, type=int)
+    parser.add_argument('--num_particles', default=16, type=int)
     parser.add_argument('--learning_rate', default=5e-3, type=float)
     parser.add_argument('--init_rand_scale', default=0.5, type=float)
 
@@ -29,6 +29,7 @@ def get_parser():
     parser.add_argument('--energy_func', default='align_dist', type=str)
     parser.add_argument('--comment', type=str)
     parser.add_argument('--cmap_dataset', type=str, default='/home/user/xsj/GenDexGrasp/logs_inf_cvae/PointNetCVAE_SqrtUnseenShadowhand/sharp_lift/example-1714820067.769674')
+    parser.add_argument('--test_name',default='{}'.format(time.strftime('%m_%d_%H_%M_%S', time.localtime())))
     
 
     args_ = parser.parse_args()
@@ -43,7 +44,9 @@ if __name__ == '__main__':
     print(args)
     print(f'double check....')
 
-    logs_basedir = os.path.join('logs_gen', f'{args.dataset}-{args.dataset_id}', f'{args.domain}-{args.robot_name}-{args.comment}', f'{args.energy_func}')
+    logs_basedir = os.path.join('logs_gen', args.test_name)
+    print('logs_basedir',logs_basedir)
+    exit()
     tb_dir = os.path.join(logs_basedir, 'tb_dir')
     tra_dir = os.path.join(logs_basedir, 'tra_dir')
     os.makedirs(logs_basedir, exist_ok=True)

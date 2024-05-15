@@ -11,7 +11,7 @@ from utils.visualize_plotly import plot_point_cloud, plot_point_cloud_cmap, plot
 from utils.set_seed import set_global_seed
 from torch.utils.tensorboard import SummaryWriter
 import point2grasp
-from point2grasp.utils_hand.suggest_pose2joints import ShadowHandGrounding
+from point2grasp.utils_hand.suggest_pose2joints import ShadowHandGrounding,AllegroHandGrounding
 import numpy as np 
 class PointCloud2StableGrasp():
     def __init__(self) -> None:
@@ -23,7 +23,7 @@ def get_parser():
 
     parser.add_argument('--dataset', default='SqrtFullRobots', type=str)
     parser.add_argument('--dataset_id', default='SharpClamp_A3', type=str)
-    parser.add_argument('--max_iter', default=200, type=int)
+    parser.add_argument('--max_iter', default=1000, type=int)
     parser.add_argument('--steps_per_iter', default=1, type=int)
     parser.add_argument('--num_particles', default=32, type=int)
     parser.add_argument('--learning_rate', default=5e-3, type=float)
@@ -33,10 +33,11 @@ def get_parser():
     parser.add_argument('--object_id', default=1, type=int)
     parser.add_argument('--energy_func', default='align_dist', type=str)
     parser.add_argument('--comment', type=str)
-    parser.add_argument('--cmap_dataset', type=str, default='/home/user/xsj/GenDexGrasp/logs_inf_cvae/PointNetCVAE_SqrtFullRobots/sharp_lift/test_05_06_16_30_05-1714984205.0652566')
+    parser.add_argument('--cmap_dataset', type=str, default='/home/user/xsj/GenDexGrasp/logs_inf_cvae/PointNetCVAE_SqrtFullRobots/sharp_lift/test_05_08_16_28_25-1715156905.3429475')
     parser.add_argument('--goal_orinented', default=True, type=bool)
     parser.add_argument('--enable_goal_orinented_penalty', default=True, type=bool)
-    
+    parser.add_argument('--test_name',default='{}'.format(time.strftime('%m_%d_%H_%M_%S', time.localtime())))
+
     args_ = parser.parse_args()
     tag = str(time.time())
     if args_.enable_goal_orinented_penalty==True:
@@ -53,7 +54,7 @@ if __name__ == '__main__':
     print(args)
     print(f'double check....')
 
-    logs_basedir = os.path.join(os.path.join(os.path.dirname(point2grasp.__file__),'../logs_gen'), f'{args.dataset}-{args.dataset_id}', f'{args.domain}-{args.robot_name}-{args.comment}', f'{args.energy_func}')
+    logs_basedir = os.path.join('logs_gen', "{}_{}_{}".format(args.robot_name,args.energy_func,args.test_name))
     tb_dir = os.path.join(logs_basedir, 'tb_dir')
     tra_dir = os.path.join(logs_basedir, 'tra_dir')
     os.makedirs(logs_basedir, exist_ok=True)
@@ -95,7 +96,7 @@ if __name__ == '__main__':
                       num_particles=args.num_particles, init_rand_scale=args.init_rand_scale, max_iter=args.max_iter,
                       steps_per_iter=args.steps_per_iter, learning_rate=args.learning_rate, device=device,
                       energy_func_name=args.energy_func)
-    handGrounding = ShadowHandGrounding()
+    handGrounding = {"shadowhand":ShadowHandGrounding,"allegro":AllegroHandGrounding}[args.robot_name]()
     for i_data in cmap_dataset:
         object_name = i_data['object_name']
         print('object_name',object_name,i_data.keys())
@@ -122,10 +123,12 @@ if __name__ == '__main__':
                         'dataset': args.dataset,
                         'object_name': object_name,
                         'goal_orinented':args.goal_orinented,
+                        # 'others':others
                         }
             print(q_tra.shape)
             best_idx=torch.argmin(energy)
             print('np.argmin(energy),np.min(energy)',best_idx,torch.min(energy))
             torch.save(i_record, os.path.join(tra_dir, f'tra-{object_name}.pt'))
+            
             model.opt_model.savefig(os.path.join(logs_basedir, f'tra-{object_name}'),mesh_file_path=i_data['mesh_file'],bold_q=q_tra[best_idx])
 

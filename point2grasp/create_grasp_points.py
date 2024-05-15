@@ -27,8 +27,8 @@ objects_config={
         "mesh_file":os.path.join('data/object', "contactdb+alarm_clock".split('+')[0], "contactdb+alarm_clock".split("+")[1],f'{"contactdb+alarm_clock".split("+")[1]}.stl'),
         "pre_defined_feature":{
             # "left_ear":[x,y,z,r,nx,ny,nz] 法向量
-            "back_mid":[[0,0.02,0,0.05,0,-1,0]],
-            "front_mid":[[0,-0.01,0,0.05,0,1,0]],
+            "back_mid":[[0.02,0.02,0,0.03,0,-1,0]],
+            "front_mid":[[0,-0.01,0,0.02,0,1,0]],
             
         }
     },
@@ -69,7 +69,9 @@ objects_config={
 }
 demands_test={
     'contactdb+alarm_clock':{
-        "enhance":[[0.005,0.01,0.04,0.01,-0.05,0.003,-0.05],[0.003,0,0.05,0.01,0,0,-1],'back_mid','front_mid'],
+        "enhance":
+            ['back_mid','front_mid'],
+            # [[0.005,0.01,0.04,0.01,-0.05,0.003,-0.05],[0.003,0,0.05,0.01,0,0,-1],'back_mid','front_mid'],
         "weaken":[],
         "grasp_suggestion_palm_ori":[90,180,0],
         "grasp_suggestion_finger_joints":[0,45,45,45]+[0,90,0,0]*4,
